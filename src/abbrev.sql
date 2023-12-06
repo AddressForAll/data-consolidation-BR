@@ -1119,7 +1119,23 @@ VALUES
 ('BR-CE-Fortaleza','parcel',4,'RES.','Residencial'),
 ('BR-CE-Fortaleza','parcel',4,'RESD','Residencial'),
 ('BR-CE-Fortaleza','parcel',4,'RESID.','Residencial'),
-('BR-CE-Fortaleza','parcel',4,'RESID.CURIÓ)','Residencial Curió)')
+('BR-CE-Fortaleza','parcel',4,'RESID.CURIÓ)','Residencial Curió)'),
+
+('BR-MG-BeloHorizonte','geoaddress',1,'ACS.','Acesso'),
+('BR-MG-BeloHorizonte','geoaddress',1,'ALA.','Alameda'),
+('BR-MG-BeloHorizonte','geoaddress',1,'AVE.','Avenida'),
+('BR-MG-BeloHorizonte','geoaddress',1,'BEC.','Beco'),
+('BR-MG-BeloHorizonte','geoaddress',1,'ELP.','Espaço Livre para Pedestre'),
+('BR-MG-BeloHorizonte','geoaddress',1,'EST.','Estrada'),
+('BR-MG-BeloHorizonte','geoaddress',1,'LRG.','Largo'),
+('BR-MG-BeloHorizonte','geoaddress',1,'PCA.','Praça'),
+('BR-MG-BeloHorizonte','geoaddress',1,'RDP.','Rua de Pedestre'),
+('BR-MG-BeloHorizonte','geoaddress',1,'ROD.','Rodovia'),
+('BR-MG-BeloHorizonte','geoaddress',1,'TRE.','Trevo'),
+('BR-MG-BeloHorizonte','geoaddress',1,'TRI.','Trincheira'),
+('BR-MG-BeloHorizonte','geoaddress',1,'TRV.','Travessa'),
+('BR-MG-BeloHorizonte','geoaddress',1,'VDP.','Via de Pedestre'),
+('BR-MG-BeloHorizonte','geoaddress',1,'VDT.','Viaduto')
 
 ) AS t (isolabel_ext,layer,field,abbrev,nabrrev)
 ;
