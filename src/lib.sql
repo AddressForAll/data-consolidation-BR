@@ -67,11 +67,25 @@ CREATE or replace FUNCTION rm_abbrev(
     FROM regexp_split_to_table($1,' ') t(p)
   ) r
   LEFT JOIN abbrevconsolidado s
-  ON s.layer=p_layer AND s.field=r.n AND s.abbrev=r.p AND s.isolabel_ext=p_isolabel
+  ON s.layer=p_layer AND s.field=r.n AND lower(s.abbrev)=lower(r.p) AND s.isolabel_ext=p_isolabel
 $$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION rm_abbrev(text,text,text)
   IS ''
 ;
+
+CREATE or replace FUNCTION tr_dicio(
+    p_isolabel text,
+    p_string text
+) RETURNS text AS $$
+  SELECT COALESCE((SELECT new
+  FROM abbrevdicio s
+  WHERE  s.old = p_string AND s.isolabel_ext=p_isolabel),p_string)
+$$ LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION tr_dicio(text,text)
+  IS ''
+;
+-- SELECT tr_dicio('BR-MG-Contagem','Alameda Alameda dos Judiciarios');
+-- SELECT tr_dicio('BR-MG-Contagem','Alameda  dos Judiciarios');
 
 CREATE or replace FUNCTION clean_hnum(
     p_string text
@@ -87,11 +101,16 @@ CREATE or replace FUNCTION clean_via(
     p_layer text,
     p_isolabel text
 ) RETURNS text AS $$
-    SELECT clean_string_after(initcap2(rm_abbrev(clean_string_before(p_string),p_layer,p_isolabel)))
+  SELECT
+    CASE
+    WHEN p_isolabel = 'BR-MG-Contagem' THEN tr_dicio(p_isolabel,(clean_string_after(initcap2(rm_abbrev(clean_string_before(p_string),p_layer,p_isolabel)))))
+    ELSE clean_string_after(initcap2(rm_abbrev(clean_string_before(p_string),p_layer,p_isolabel)))
+    END
 $$ LANGUAGE SQL IMMUTABLE;
 COMMENT ON FUNCTION clean_string2(text,text,text)
   IS 'Clean string'
 ;
+-- SELECT clean_via('Alameda Alameda dos Judiciarios','geoaddress','BR-MG-Contagem');
 
 -----------------------
 
@@ -101,6 +120,7 @@ CREATE or replace FUNCTION split_via_name(
 ) RETURNS text[] AS $$
   SELECT
     CASE
+    WHEN p_isolabel = 'BR-PI-Teresina'      THEN (SELECT regexp_matches(p_string, '^(Acesso|Alameda|Avenida|Beco|Conjunto|Estrada|Galeria|Praca|Rodovia|Rua|Travessa|Via) (.*)$'))::text[]
     WHEN p_isolabel = 'BR-MG-BeloHorizonte' THEN (SELECT regexp_matches(p_string, '^(Acesso|Alameda|Avenida|Beco|Espaço Livre para Pedestre|Estrada|Largo|Praça|Rua de Pedestre|Rodovia|Rua|Trevo|Trincheira|Travessa|Via|Via de Pedestre|Viaduto) (.*)$'))::text[]
     WHEN p_isolabel = 'BR-CE-Fortaleza'     THEN (SELECT regexp_matches(p_string, '^(Alameda|Avenida|Beco|Estrada|Galeria|Largo|Praça|Rodovia|Rua|Travessa|Via|Viaduto|Vila) (.*)$'))::text[]
     WHEN p_isolabel = 'BR-MG-Contagem'      THEN (SELECT regexp_matches(p_string, '^(Alameda Alameda|Rua Alameda|Via Acesso|Via Arterial|Via Expressa|Via Municipal|Via Via Expressa|Alameda|Avenida|Beco|Estrada|Praça|Rodovia|Rua|Travessa|Via) (.*)$'))
@@ -121,14 +141,20 @@ CREATE or replace FUNCTION optim.consolidated_data_ins(
   INSERT INTO optim.consolidated_data
   SELECT isolabel_ext,iso1,iso2,city_name,arr[1] AS via_type,arr[2] AS via_name,house_number,postcode,
         license_family,latitude,longitude,
-        afa_id,iso1 || '+' || afacodes_scientific AS afacodes_scientific,afacodes_logistic,
+
+        (CASE iso1
+          WHEN 'BR' THEN natcod.baseh_to_vbit(osmc.decode_16h1c(afacodes_scientific,iso1),16)
+          ELSE           natcod.baseh_to_vbit(                  afacodes_scientific      ,16)
+        END)::bit(64) AS afa_id,
+
+        iso1 || '+' || afacodes_scientific AS afacodes_scientific,afacodes_logistic,
         geom_frontparcel,score,packvers_id,ftid,geom
   FROM
   (
     SELECT p.isolabel_ext,iso1,iso2,city_name,
 
       split_via_name(clean_via(via_name,(q.info->>'class_ftname')::text,p.isolabel_ext),p.isolabel_ext) AS arr,
-      clean_hnum(house_number) AS house_number,
+      clean_hnum(house_number) AS house_number, housenumber_system_type,
 
       CASE iso1
       WHEN 'BR' THEN postcode_maskBR(postcode)
@@ -176,11 +202,10 @@ CREATE or replace FUNCTION optim.consolidated_data_ins(
     ON p.ftid = q.ftid
     LEFT JOIN optim.jurisdiction r
     ON r.isolabel_ext = p.isolabel_ext
-    WHERE p.isolabel_ext=p_isolabel_ext
-    ORDER BY isolabel_ext, via_type, via_name, house_number
-    -- LIMIT 100
+    WHERE p.isolabel_ext='BR-MG-Contagem'
+     LIMIT 100
   ) m
-  ORDER BY address_order
+  ORDER BY via_type, via_name, CASE WHEN house_number IS NULL THEN afa_id::bigint ELSE (address_order)::bigint END
   ;
 
   SELECT 'ins';
